@@ -73,7 +73,10 @@ class GoogleService {
 		return $locations;
 	}
 
-	public function getLocationByPlaceId(string $placeId) {
+	public function getLocationByPlaceId($placeId) {
+		if (!$placeId) {
+			return null;
+		}
 		return collect($this->getLocations())
 			->whereNull('metadata.duplicateLocation')
 			->firstWhere('metadata.placeId', $placeId);

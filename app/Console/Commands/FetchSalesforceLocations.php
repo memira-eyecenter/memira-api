@@ -31,9 +31,10 @@ class FetchSalesforceLocations extends Command {
      * Execute the console command.
      */
     public function handle() {
-        // $locations = $this->salesforceService->getLocations();
+        dd($this->salesforceService->getLocations());
 
-        $loc = $this->salesforceService->getLocationByPlaceId('ChIJOTKXxGCdX0YRasfZmn47WHE');
-        dd($loc, $this->salesforceService->buildRegularHours($loc));
+        // $location     = $this->salesforceService->getLocationByPlaceId('ChIJOTKXxGCdX0YRasfZmn47WHE');
+        // $regularHours = $this->salesforceService->transformIntoGoogleRegularHours($location);
+        // dd(compact('location', 'regularHours'));
     }
 }
