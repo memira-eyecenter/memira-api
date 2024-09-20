@@ -43,6 +43,8 @@ class FetchGoogleLocations extends Command {
                         $location['salesforceHours'] = null;
                     }
 
+                    $location['regularHours'] = $this->googleService->transformIntoGoogleRegularHours($location);
+
                     return $location;
                 })
                 ->whereNotNull('salesforceHours')
@@ -53,9 +55,9 @@ class FetchGoogleLocations extends Command {
                         ->only('name', 'storeCode')
                         ->put('name', explode('/', $loc->get('name'))[1] ?? null)
                         ->put('status', $location['openInfo']['status'] ?? null)
-                        ->put('regularHours', hash('sha256', json_encode($loc->get('regularHours') ?: [])))
-                        ->put('salesforceHours', hash('sha256', json_encode($loc->get('salesforceHours') ?: [])))
-                        ->put('equal', $this->salesforceService->compareRegularHours($loc->get('regularHours'), $loc->get('salesforceHours')))
+                        ->put('regularHours', $loc->get('regularHours')->getHash())
+                        ->put('salesforceHours', $loc->get('salesforceHours')->getHash())
+                        ->put('equal', $loc->get('regularHours')->compare($loc->get('salesforceHours')))
                         ->toArray();
                 })
                 ->all());

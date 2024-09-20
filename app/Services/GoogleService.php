@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Utilities\RegularHours;
 use Google\Client;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
@@ -89,5 +90,9 @@ class GoogleService {
 			->patch("https://mybusiness.googleapis.com/v1/accounts/{$accountId}/locations/{$locationId}", compact('regularHours'));
 
 		return $response->json();
+	}
+
+	public function transformIntoGoogleRegularHours(array $location) {
+		return new RegularHours($location['regularHours']['periods'] ?? []);
 	}
 }

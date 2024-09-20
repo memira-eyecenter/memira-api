@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Utilities\RegularHours;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -122,109 +123,36 @@ class SalesforceService {
 			],
 		];
 
-		$periods = collect($days)
-			->flatMap(function ($times, $day) use ($location) {
-				$startTime = Arr::get($location, $times['start']);
-				$endTime = Arr::get($location, $times['end']);
-				$lunchTime = Arr::get($location, $times['lunch']);
+		$regularHours = new RegularHours();
+
+		collect($days)
+			->each(function ($times, $day) use ($location, $regularHours) {
+				$startTime  = Arr::get($location, $times['start']);
+				$endTime    = Arr::get($location, $times['end']);
+				$lunchTime  = Arr::get($location, $times['lunch']);
 				$lunchStart = Arr::get($location, 'BH_LunchTime_From__c');
-				$lunchEnd = Arr::get($location, 'BH_LunchTime_To__c');
+				$lunchEnd   = Arr::get($location, 'BH_LunchTime_To__c');
 
 				if (empty($startTime) || empty($endTime)) {
-					return [];
+					return;
 				}
 
 				$openTime  = Carbon::parse((string) substr($startTime, 0, 5));
 				$closeTime = Carbon::parse((string) substr($endTime, 0, 5));
 
-				$periods = [];
-
 				if ($lunchTime and $lunchStart and $lunchEnd) {
 					$lunchStartTime = Carbon::parse(substr((string) $lunchStart, 0, 5));
-					$lunchEndTime = Carbon::parse(substr((string) $lunchEnd, 0, 5));
+					$lunchEndTime   = Carbon::parse(substr((string) $lunchEnd, 0, 5));
 
-					$beforeLunch = [
-						'openDay'  => $day,
-						'openTime' => [
-							'hours' => $openTime->hour,
-						],
-						'closeDay'  => $day,
-						'closeTime' => [
-							'hours' => $lunchStartTime->hour,
-						],
-					];
+					$regularHours->addPeriod($day, $openTime, $lunchStartTime);
+					$regularHours->addPeriod($day, $lunchEndTime, $closeTime);
 
-					if ($openTime->minute) {
-						$beforeLunch['openTime']['minutes'] = $openTime->minute;
-					}
-
-					if ($lunchStartTime->minute) {
-						$beforeLunch['closeTime']['minutes'] = $lunchStartTime->minute;
-					}
-
-					$afterLunch = [
-						'openDay'  => $day,
-						'openTime' => [
-							'hours' => $lunchEndTime->hour,
-						],
-						'closeDay'  => $day,
-						'closeTime' => [
-							'hours' => $closeTime->hour,
-						],
-					];
-
-					if ($lunchEndTime->minute) {
-						$afterLunch['openTime']['minutes'] = $lunchEndTime->minute;
-					}
-
-					if ($closeTime->minute) {
-						$afterLunch['closeTime']['minutes'] = $closeTime->minute;
-					}
-
-					$periods[] = $beforeLunch;
-					$periods[] = $afterLunch;
-				} else {
-					$allDay = [
-						'openDay' => $day,
-						'openTime' => [
-							'hours' => $openTime->hour,
-						],
-						'closeDay' => $day,
-						'closeTime' => [
-							'hours' => $closeTime->hour,
-						],
-					];
-
-					if ($openTime->minute) {
-						$allDay['openTime']['minutes'] = $openTime->minute;
-					}
-
-					if ($closeTime->minute) {
-						$allDay['closeTime']['minutes'] = $closeTime->minute;
-					}
-
-					$periods[] = $allDay;
+					return;
 				}
 
-				return $periods;
-			})
-			->values()
-			->all();
+				$regularHours->addPeriod($day, $openTime, $closeTime);
+			});
 
-		return compact('periods');
-	}
-
-	public function compareRegularHours($hours1, $hours2) {
-		if (!$hours1 or !$hours2) {
-			return false;
-		}
-
-		$hours1Json = json_encode(collect($hours1)->sort()->values()->all());
-		$hours2Json = json_encode(collect($hours2)->sort()->values()->all());
-
-		$hours1hash = hash('sha256', $hours1Json);
-		$hours2hash = hash('sha256', $hours2Json);
-
-		return $hours1hash === $hours2hash;
+		return $regularHours;
 	}
 }
