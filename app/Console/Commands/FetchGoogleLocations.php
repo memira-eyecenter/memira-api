@@ -26,11 +26,34 @@ class FetchGoogleLocations extends Command {
 
     // Execute the console command.
     public function handle() {
-        // $location = $this->googleService->getLocationByPlaceId('ChIJOTKXxGCdX0YRasfZmn47WHE');
-
         $locations = $this->googleService->getLocations();
 
         if ($locations) {
+            $this->table(['Location ID', 'Store code', 'Status', 'Place ID', 'Regular hours'], collect($locations)
+                ->map(function ($location) {
+                    $regularHours = $this->googleService->transformIntoGoogleRegularHours($location);
+                    $location = collect($location)->dot();
+
+                    if (!$location->has('metadata.placeId')) {
+                        $location->put('metadata.placeId', null);
+                    }
+
+                    if (!$location->has('openInfo.status')) {
+                        $location->put('openInfo.status', null);
+                    }
+
+                    return $location
+                        ->only(
+                            'name',
+                            'storeCode',
+                            'metadata.placeId',
+                            'openInfo.status'
+                        )
+                        ->put('regularHours', $regularHours->getString(false))
+                        ->toArray();
+                })
+                ->all());
+        } else if (true === false and $locations) {
             $this->table(['ID', 'Store code', 'Status', 'Regular hours', 'Salesforce hours', 'Equal'], collect($locations)
                 ->map(function ($location) {
                     $placeId = $location['metadata']['placeId'] ?? null;

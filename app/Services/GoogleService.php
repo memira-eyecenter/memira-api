@@ -94,11 +94,15 @@ class GoogleService {
 			->firstWhere('metadata.placeId', $placeId);
 	}
 
-	public function updateLocation(int|string $locationId, array $regularHours) {
+	public function updateLocation(int|string $locationId, RegularHours $regularHours) {
 		$accountId = $this->getAccountId();
 
 		$response = Http::withToken($this->accessToken)
-			->patch("https://mybusiness.googleapis.com/v1/accounts/{$accountId}/locations/{$locationId}", compact('regularHours'));
+			->patch("https://mybusiness.googleapis.com/v1/accounts/{$accountId}/locations/{$locationId}", [
+				'regularHours' => [
+					'periods' => $regularHours->getPeriods(),
+				]
+			]);
 
 		return $response->json();
 	}
