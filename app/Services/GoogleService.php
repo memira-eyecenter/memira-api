@@ -62,13 +62,24 @@ class GoogleService {
 				'openInfo.status',
 			];
 
-			$response = Http::withToken($this->accessToken)
-				->get("https://mybusiness.googleapis.com/v1/accounts/{$accountId}/locations", [
-					'pageSize' => 100,
-					'readMask' => implode(',', $readMask),
-				]);
+			$allLocations = [];
+			$nextPageToken = null;
 
-			return $response->json('locations');
+			do {
+				$response = Http::withToken($this->accessToken)
+					->get("https://mybusiness.googleapis.com/v1/accounts/{$accountId}/locations", [
+						'pageSize' => 100,
+						'readMask' => implode(',', $readMask),
+						'pageToken' => $nextPageToken,
+					]);
+
+				$responseJson  = $response->json();
+				$locations     = $responseJson['locations'] ?? [];
+				$allLocations  = array_merge($allLocations, $locations);
+				$nextPageToken = $responseJson['nextPageToken'] ?? null;
+			} while ($nextPageToken);
+
+			return $allLocations;
 		});
 
 		return $locations;
