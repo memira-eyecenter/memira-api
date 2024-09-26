@@ -54,7 +54,15 @@ class FetchGoogleLocations extends Command {
                 })
                 ->all());
         } else if (true === false and $locations) {
-            $this->table(['ID', 'Store code', 'Status', 'Regular hours', 'Salesforce hours', 'Equal'], collect($locations)
+            // 6 cols
+            $this->table([
+                'ID',
+                'Store code',
+                'Status',
+                'Google hours',
+                'Salesforce hours',
+                'Equal'
+            ], collect($locations)
                 ->map(function ($location) {
                     $placeId = $location['metadata']['placeId'] ?? null;
 
@@ -74,6 +82,7 @@ class FetchGoogleLocations extends Command {
                 ->whereNotIn('openInfo.status', ['CLOSED_PERMANENTLY'])
                 ->map(function ($location) {
                     $loc = collect($location);
+                    // 6 cols
                     return $loc
                         ->only('name', 'storeCode')
                         ->put('name', explode('/', $loc->get('name'))[1] ?? null)
