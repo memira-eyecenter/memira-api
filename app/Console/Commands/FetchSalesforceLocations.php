@@ -33,9 +33,17 @@ class FetchSalesforceLocations extends Command {
     public function handle() {
         $locations = $this->salesforceService->getLocations();
 
-        $this->table(['Location ID', 'Name', 'Place ID', 'Regular hours'], collect($locations)
+        $this->table([
+            'Location ID',
+            'Name',
+            'Place ID',
+            'Regular hours',
+            'Special hours',
+        ], collect($locations)
             ->map(function ($location) {
-                $regularHours = $this->salesforceService->transformIntoGoogleRegularHours($location);
+                $regularHours = $this->salesforceService->getRegularHours($location);
+                $specialHours = $this->salesforceService->getSpecialHours($location);
+
                 $location = collect($location);
 
                 if (!$location->has('Google_Place_ID__c')) {
@@ -48,7 +56,8 @@ class FetchSalesforceLocations extends Command {
                         'Name',
                         'Google_Place_ID__c',
                     )
-                    ->put('regularHours', $regularHours->getString(false))
+                    ->put('regularHours', $regularHours->toString(false))
+                    ->put('specialHours', $specialHours->toString())
                     ->toArray();
             })
             ->all());

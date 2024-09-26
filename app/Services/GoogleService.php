@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Utilities\RegularHours;
+use App\Utilities\SpecialHours;
 use Google\Client;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
@@ -54,7 +55,7 @@ class GoogleService {
 				'title',
 				'storeCode',
 				'regularHours',
-				'moreHours',
+				'specialHours',
 				'storefrontAddress',
 				'metadata.placeId',
 				'metadata.mapsUri',
@@ -107,7 +108,14 @@ class GoogleService {
 		return $response->json();
 	}
 
-	public function transformIntoGoogleRegularHours(array $location) {
+	public function getRegularHours(array $location) {
 		return new RegularHours($location['regularHours']['periods'] ?? []);
+	}
+
+	public function getSpecialHours(array $location) {
+		if (!empty($location['metadata']['placeId']) and $location['metadata']['placeId'] == 'ChIJTZin4K6gWkYRbErHkTdq05I') {
+			dd($location);
+		}
+		return new SpecialHours($location['specialHours']['specialHourPeriods'] ?? []);
 	}
 }

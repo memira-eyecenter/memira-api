@@ -29,30 +29,43 @@ class FetchGoogleLocations extends Command {
         $locations = $this->googleService->getLocations();
 
         if ($locations) {
-            $this->table(['Location ID', 'Store code', 'Status', 'Place ID', 'Regular hours'], collect($locations)
-                ->map(function ($location) {
-                    $regularHours = $this->googleService->transformIntoGoogleRegularHours($location);
-                    $location = collect($location)->dot();
+            $this->table(
+                [
+                    'Location ID',
+                    'Store code',
+                    'Status',
+                    'Place ID',
+                    'Regular hours',
+                    'Special hours',
+                ],
+                collect($locations)
+                    ->map(function ($location) {
+                        $regularHours = $this->googleService->getRegularHours($location);
+                        $specialHours = $this->googleService->getSpecialHours($location);
 
-                    if (!$location->has('metadata.placeId')) {
-                        $location->put('metadata.placeId', null);
-                    }
+                        $location = collect($location)->dot();
 
-                    if (!$location->has('openInfo.status')) {
-                        $location->put('openInfo.status', null);
-                    }
+                        if (!$location->has('metadata.placeId')) {
+                            $location->put('metadata.placeId', null);
+                        }
 
-                    return $location
-                        ->only(
-                            'name',
-                            'storeCode',
-                            'metadata.placeId',
-                            'openInfo.status'
-                        )
-                        ->put('regularHours', $regularHours->getString(false))
-                        ->toArray();
-                })
-                ->all());
+                        if (!$location->has('openInfo.status')) {
+                            $location->put('openInfo.status', null);
+                        }
+
+                        return $location
+                            ->only(
+                                'name',
+                                'storeCode',
+                                'metadata.placeId',
+                                'openInfo.status'
+                            )
+                            ->put('regularHours', $regularHours->toString(false))
+                            ->put('specialHours', $specialHours->toString())
+                            ->toArray();
+                    })
+                    ->all()
+            );
         } else if (true === false and $locations) {
             // 6 cols
             $this->table([
@@ -69,12 +82,12 @@ class FetchGoogleLocations extends Command {
                     $salesforceLoc = $this->salesforceService->getLocationByPlaceId($placeId);
 
                     if ($salesforceLoc) {
-                        $location['salesforceHours'] = $this->salesforceService->transformIntoGoogleRegularHours($salesforceLoc);
+                        $location['salesforceHours'] = $this->salesforceService->getRegularHours($salesforceLoc);
                     } else {
                         $location['salesforceHours'] = null;
                     }
 
-                    $location['regularHours'] = $this->googleService->transformIntoGoogleRegularHours($location);
+                    $location['regularHours'] = $this->googleService->getRegularHours($location);
 
                     return $location;
                 })

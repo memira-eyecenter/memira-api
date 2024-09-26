@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Utilities\RegularHours;
+use App\Utilities\SpecialHours;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -43,13 +44,7 @@ class SalesforceService {
 			'BH_SaturdayEndTime__c',
 			'BH_SundayStartTime__c',
 			'BH_SundayEndTime__c',
-			// Closed dates for moreHours
-			'BH_SpecialDateClosed01__c',
-			'BH_SpecialDateClosed02__c',
-			'BH_SpecialDateClosed03__c',
-			// Closed period for moreHours
-			'BH_Closedbetween_StartDate__c',
-			'BH_Closedbetween_EndDate__c',
+			// General lunch hours
 			'BH_LunchTime_From__c',
 			'BH_LunchTime_To__c',
 			// Booleans if closed for lunch or not
@@ -60,6 +55,13 @@ class SalesforceService {
 			'BH_FridayLunchTime__c',
 			'BH_SaturdayLunchTime__c',
 			'BH_SundayLunchTime__c',
+			// Closed dates for moreHours
+			'BH_SpecialDateClosed01__c',
+			'BH_SpecialDateClosed02__c',
+			'BH_SpecialDateClosed03__c',
+			// Closed period for moreHours
+			'BH_Closedbetween_StartDate__c',
+			'BH_Closedbetween_EndDate__c',
 		];
 
 		// Cache::forget("salesforce/locations");
@@ -80,7 +82,7 @@ class SalesforceService {
 			->firstWhere('Google_Place_ID__c', $placeId);
 	}
 
-	public function transformIntoGoogleRegularHours(array $location) {
+	public function getRegularHours(array $location) {
 		if (!$location or !is_array($location)) {
 			return null;
 		}
@@ -154,5 +156,31 @@ class SalesforceService {
 			});
 
 		return $regularHours;
+	}
+
+	public function getSpecialHours(array $location) {
+		if (!$location or !is_array($location)) {
+			return null;
+		}
+
+		$specialHours = new SpecialHours();
+
+		if (!empty($location['BH_SpecialDateClosed01__c'])) {
+			$specialHours->addClosedDay($location['BH_SpecialDateClosed01__c']);
+		}
+
+		if (!empty($location['BH_SpecialDateClosed02__c'])) {
+			$specialHours->addClosedDay($location['BH_SpecialDateClosed02__c']);
+		}
+
+		if (!empty($location['BH_SpecialDateClosed03__c'])) {
+			$specialHours->addClosedDay($location['BH_SpecialDateClosed03__c']);
+		}
+
+		if (!empty($location['BH_Closedbetween_StartDate__c']) and !empty($location['BH_Closedbetween_EndDate__c'])) {
+			$specialHours->addPeriod(false, $location['BH_Closedbetween_StartDate__c'], $location['BH_Closedbetween_EndDate__c']);
+		}
+
+		return $specialHours;
 	}
 }
