@@ -98,70 +98,73 @@ class RegularHours {
 		$combinedPeriods = [];
 
 		foreach ($groupedPeriods as $day => $periods) {
-			$openTimes  = $this->extractTimes($periods->toArray(), 'openTime', $includeLunch);
-			$closeTimes = $this->extractTimes($periods->toArray(), 'closeTime', $includeLunch);
+			$openTimes  = [];
+			$closeTimes = [];
 
-			$combinedPeriods[$day] = [
-				'openTimes'  => array_unique($openTimes),
-				'closeTimes' => array_unique($closeTimes),
-			];
-		}
+			foreach ($periods as $period) {
+				$openTime  = sprintf('%02d:%02d', $period['openTime']['hours'], $period['openTime']['minutes'] ?? 0);
+				$closeTime = sprintf('%02d:%02d', $period['closeTime']['hours'], $period['closeTime']['minutes'] ?? 0);
 
-		$days = array_keys($combinedPeriods);
-		if (empty($days)) return $output;
+				$openTimes[]  = $openTime;
+				$closeTimes[] = $closeTime;
+			}
 
-		$rangeStart     = $days[0];
-		$previousDay    = $rangeStart;
-		$rangeOpenTimes = $combinedPeriods[$rangeStart]['openTimes'];
-		$rangeCloseTimes = $combinedPeriods[$rangeStart]['closeTimes'];
-
-		for ($i = 1; $i < count($days); $i++) {
-			$currentDay         = $days[$i];
-			$currentOpenTimes   = $combinedPeriods[$currentDay]['openTimes'];
-			$currentCloseTimes  = $combinedPeriods[$currentDay]['closeTimes'];
-
-			if ($currentOpenTimes === $rangeOpenTimes and $currentCloseTimes === $rangeCloseTimes) {
-				$previousDay = $currentDay;
+			// Format the output based on whether lunch is included
+			if ($includeLunch) {
+				// If lunch is included, format as "08:00-12:00/13:00-17:00"
+				$combinedPeriods[$day] = sprintf('%s %s', self::DAYS[$day], $this->formatOpenCloseWithLunch($openTimes, $closeTimes));
 			} else {
-				$output .= $this->formatRange($rangeStart, $previousDay, $rangeOpenTimes, $rangeCloseTimes) . ', ';
-				$rangeStart      = $currentDay;
-				$previousDay     = $currentDay;
-				$rangeOpenTimes  = $currentOpenTimes;
-				$rangeCloseTimes = $currentCloseTimes;
+				// If lunch is not included, format as "08:00-17:00"
+				$minOpenTime = min($openTimes);
+				$maxCloseTime = max($closeTimes);
+				$combinedPeriods[$day] = sprintf('%s %s-%s', self::DAYS[$day], $minOpenTime, $maxCloseTime);
 			}
 		}
 
-		$output .= $this->formatRange($rangeStart, $previousDay, $rangeOpenTimes, $rangeCloseTimes);
-		return $output;
-	}
+		// Group days by their time strings
+		$timesWithDays = array_reduce($combinedPeriods, function ($carry, $item) {
+			[$day, $times] = explode(' ', $item);
 
-	protected function extractTimes(array $periods, string $timeType, bool $includeLunch): array {
-		$times = [];
-		foreach ($periods as $period) {
-			$time = $period[$timeType]['hours'] . ':' . str_pad($period[$timeType]['minutes'] ?? 0, 2, '0', STR_PAD_LEFT);
-			if ($includeLunch || (!$includeLunch and count($periods) == 1)) {
-				$times[] = $time;
+			if (!isset($carry[$times])) {
+				$carry[$times] = [];
+			}
+
+			$carry[$times][] = $day;
+			return $carry;
+		}, []);
+
+		// Prepare the final output string
+		$finalOutput = [];
+		foreach ($timesWithDays as $times => $days) {
+			$startDay = $days[0];
+			$endDay = end($days);
+
+			// Format the output based on whether they are the same day or a range
+			if ($startDay === $endDay) {
+				$finalOutput[] = sprintf('%s %s', $startDay, $times);
+			} else {
+				$finalOutput[] = sprintf('%s-%s %s', $startDay, $endDay, $times);
 			}
 		}
 
-		if (!$includeLunch) {
-			// Check if times array is not empty before calling min/max
-			if (!empty($times)) {
-				return [min($times), max($times)];
+		return implode(', ', $finalOutput);
+	}
+
+	protected function formatOpenCloseWithLunch(array $openTimes, array $closeTimes): string {
+		$formatted = [];
+
+		// Loop through the open and close times
+		for ($i = 0; $i < count($openTimes); $i++) {
+			if (isset($closeTimes[$i])) {
+				// Format as "openTime-closeTime"
+				$formatted[] = sprintf('%s-%s', $openTimes[$i], $closeTimes[$i]);
 			}
-			// Return a default value if times is empty
-			return ['00:00', '00:00']; // Default to midnight if no times are available
 		}
 
-		return $times;
+		// Join the formatted times with a slash
+		return implode('/', $formatted);
 	}
 
-
-	protected function formatRange(string $startDay, string $endDay, array $openTimes, array $closeTimes): string {
-		$dayString = $startDay === $endDay ? self::DAYS[$startDay] : self::DAYS[$startDay] . '-' . self::DAYS[$endDay];
-		$timeString = implode('/', $openTimes) . '-' . implode('/', $closeTimes);
-		return "$dayString $timeString";
-	}
 
 	protected function parseTime(string|Carbon $time, ?DateTimeZone $timeZone): Carbon {
 		return is_string($time) ? Carbon::parse($time, $timeZone) : $time;
