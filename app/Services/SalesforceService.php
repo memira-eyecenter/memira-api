@@ -28,6 +28,7 @@ class SalesforceService {
 		$fields = [
 			'Id',
 			'Name',
+			'Country__c',
 			'Google_Place_ID__c',
 			// Regular hours
 			'BH_MondayStartTime__c',
@@ -62,6 +63,9 @@ class SalesforceService {
 			// Closed period for moreHours
 			'BH_Closedbetween_StartDate__c',
 			'BH_Closedbetween_EndDate__c',
+			// Special open dates
+			'BH_SpecialDateTimeOpen01__c',
+			'BH_SpecialTimeClosed01__c',
 		];
 
 		// Cache::forget("salesforce/locations");
@@ -139,10 +143,12 @@ class SalesforceService {
 					return;
 				}
 
+				// Note: Output from Salesforce is in input format (local time), so is falsely presented in UTC
 				$openTime  = Carbon::parse((string) substr($startTime, 0, 5));
 				$closeTime = Carbon::parse((string) substr($endTime, 0, 5));
 
 				if ($lunchTime and $lunchStart and $lunchEnd) {
+					// Note: Output from Salesforce is in input format (local time), so is falsely presented in UTC
 					$lunchStartTime = Carbon::parse(substr((string) $lunchStart, 0, 5));
 					$lunchEndTime   = Carbon::parse(substr((string) $lunchEnd, 0, 5));
 
@@ -180,6 +186,37 @@ class SalesforceService {
 		if (!empty($location['BH_Closedbetween_StartDate__c']) and !empty($location['BH_Closedbetween_EndDate__c'])) {
 			$specialHours->addPeriod(false, $location['BH_Closedbetween_StartDate__c'], $location['BH_Closedbetween_EndDate__c']);
 		}
+
+		if (!empty($location['BH_SpecialDateTimeOpen01__c']) and !empty($location['BH_SpecialTimeClosed01__c'])) {
+			$startDate = Carbon::parse($location['BH_SpecialDateTimeOpen01__c']);
+
+			// Note: Output from Salesforce is in UTC, so we need to adjust the timezone accordingly.
+			switch ($location['Country__c']) {
+				case 'Sweden':
+					$startDate->setTimezone('Europe/Stockholm');
+					break;
+				case 'Norway':
+					$startDate->setTimezone('Europe/Oslo');
+					break;
+				case 'Denmark':
+					$startDate->setTimezone('Europe/Copenhagen');
+					break;
+				case 'Netherlands':
+					$startDate->setTimezone('Europe/Amsterdam');
+					break;
+			}
+
+			$openTime = $startDate->format('H:i');
+
+			// Normalise datetime to date only
+			$startDate->setTime(0, 0);
+
+			// Note: Output from Salesforce is in input format (local time), so is falsely presented in UTC
+			$closeTime = substr($location['BH_SpecialTimeClosed01__c'], 0, 5);
+
+			$specialHours->addPeriod(true, $startDate, $startDate, $openTime, $closeTime);
+		}
+
 
 		return $specialHours;
 	}
