@@ -54,32 +54,13 @@ class SpecialHours {
 	}
 
 	public function addPeriod(bool $isOpen = true, string|Carbon $startDate, ?string $endDate = null, ?string $openTime = null, ?string $closeTime = null, ?DateTimeZone $timeZone = null) {
-		// Parse date and time inputs
+		// Parse date inputs
 		$startDate = $this->parseDate($startDate, $timeZone);
+		$endDate   = $this->parseDate($endDate ?? $startDate, $timeZone);
 
-		// Ignore past start dates
-		if ($startDate->isPast()) {
-			return; // Skip adding this period
-		}
-
-		$endDate = $this->parseDate($endDate ?? $startDate, $timeZone);
-
-		// Ignore past end dates if both start and end dates are provided
-		if ($endDate->isPast() and $startDate->isToday()) {
-			return; // Skip adding this period
-		}
-
-		$openTime  = $this->parseTime($openTime, $startDate, $timeZone);
-		$closeTime = $this->parseTime($closeTime, $startDate, $timeZone);
-
-		// Default endDate to startDate if not provided
-		if (!$endDate) {
-			$endDate = $startDate;
-		}
-
-		// Validate the time period
-		if ($isOpen and $openTime and $closeTime and $openTime->greaterThan($closeTime)) {
-			throw new \InvalidArgumentException('Invalid time period: open time must be before close time.');
+		// Ignore past end dates
+		if ($endDate->isPast()) {
+			return;
 		}
 
 		if (!$startDate->isSameDay($endDate) and $startDate->greaterThan($endDate)) {
@@ -89,6 +70,7 @@ class SpecialHours {
 		// Construct the period array
 		$period = [
 			'startDate' => $this->formatDate($startDate),
+			'endDate'   => $this->formatDate($endDate),
 			'closed'    => !$isOpen,
 		];
 
@@ -98,8 +80,16 @@ class SpecialHours {
 			return;
 		}
 
+		// Parse time inputs
+		$openTime  = $this->parseTime($openTime, $startDate, $timeZone);
+		$closeTime = $this->parseTime($closeTime, $startDate, $timeZone);
+
+		// Validate the time period
+		if ($isOpen and $openTime and $closeTime and $openTime->greaterThan($closeTime)) {
+			throw new \InvalidArgumentException('Invalid time period: open time must be before close time.');
+		}
+
 		// Include open and close times for open periods
-		$period['endDate']   = $endDate ? $this->formatDate($endDate) : null;
 		$period['openTime']  = $openTime ? $this->formatTime($openTime) : null;
 		$period['closeTime'] = $closeTime ? $this->formatTime($closeTime) : null;
 
@@ -133,12 +123,12 @@ class SpecialHours {
 		}
 
 		// Check if the time is in "HH:MM" format
-		if (preg_match('/^\d{1,2}:\d{2}$/', $time)) {
+		if (preg_match('/^\d{1,2}:\d{2}/', $time)) {
 			// Split the time into hours and minutes
 			list($hours, $minutes) = explode(':', $time);
 
 			// Create a Carbon instance with the specified hours and minutes
-			return Carbon::createFromTime((int)$hours, (int)$minutes, 0, $timeZone)
+			return Carbon::createFromTime((int) $hours, (int) $minutes, 0, $timeZone)
 				->setDate($referenceDate->year, $referenceDate->month, $referenceDate->day);
 		}
 
@@ -171,12 +161,23 @@ class SpecialHours {
 		foreach ($this->periods as $period) {
 			if ($period['closed']) {
 				// Format closed days using startDate
-				$date = Carbon::createFromDate(
+				$startDate = Carbon::createFromDate(
 					$period['startDate']['year'],
 					$period['startDate']['month'],
 					$period['startDate']['day']
 				);
-				$closedDays[] = $date->format('M j'); // e.g., "Aug 25"
+				if ($period['endDate']) {
+					$endDate = Carbon::createFromDate(
+						$period['endDate']['year'],
+						$period['endDate']['month'],
+						$period['endDate']['day']
+					);
+				}
+				if (empty($endDate) or $startDate->isSameDay($endDate)) {
+					$closedDays[] = $startDate->format('M j'); // e.g., "Aug 25"
+				} else {
+					$closedDays[] = $startDate->format('M j') . '-' . $endDate->format('M j'); // e.g., "Aug 25-Sep 1"
+				}
 			} else {
 				// Format open periods using startDate
 				$date = Carbon::createFromDate(

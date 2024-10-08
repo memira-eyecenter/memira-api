@@ -146,13 +146,13 @@ class SalesforceService {
 					$lunchStartTime = Carbon::parse(substr((string) $lunchStart, 0, 5));
 					$lunchEndTime   = Carbon::parse(substr((string) $lunchEnd, 0, 5));
 
-					$regularHours->addPeriod($day, $openTime, $lunchStartTime);
-					$regularHours->addPeriod($day, $lunchEndTime, $closeTime);
+					$regularHours->addPeriod($day, $openTime, $day, $lunchStartTime);
+					$regularHours->addPeriod($day, $lunchEndTime, $day, $closeTime);
 
 					return;
 				}
 
-				$regularHours->addPeriod($day, $openTime, $closeTime);
+				$regularHours->addPeriod($day, $openTime, $day, $closeTime);
 			});
 
 		return $regularHours;
