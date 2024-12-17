@@ -44,10 +44,12 @@ class GoogleService {
 		return null;
 	}
 
-	public function getLocations() {
+	public function getLocations(bool $forceUpdate = false) {
 		$accountId = $this->getAccountId();
 
-		// Cache::forget('google/locations');
+		if ($forceUpdate) {
+			Cache::forget('google/locations');
+		}
 
 		$locations = Cache::remember("google/locations", 300, function () use ($accountId) {
 			$readMask = [
@@ -86,7 +88,7 @@ class GoogleService {
 		return $locations;
 	}
 
-	public function getLocationByPlaceId($placeId) {
+	public function getLocationByPlaceId(string $placeId): array|string {
 		if (!$placeId) {
 			return null;
 		}
@@ -95,15 +97,42 @@ class GoogleService {
 			->firstWhere('metadata.placeId', $placeId);
 	}
 
-	public function updateLocation(int|string $locationId, RegularHours $regularHours) {
-		$accountId = $this->getAccountId();
+	public function updateLocation(string $locationName, ?RegularHours $regularHours = null, ?SpecialHours $specialHours = null) {
+		if (!$regularHours and !$specialHours) {
+			throw new \Exception('At least one of regularHours or specialHours must be provided');
+		}
+
+		$body       = [];
+		$updateMask = [];
+
+		if ($regularHours) {
+			$updateMask[] = 'regularHours.periods';
+			$body['regularHours'] = [
+				'periods' => $regularHours->toArray(),
+			];
+		}
+
+		if ($specialHours) {
+			$updateMask[] = 'specialHours.specialHourPeriods';
+			$body['specialHours'] = [
+				'specialHourPeriods' => $specialHours->toArray(),
+			];
+		}
+
+		// dd($specialHours->toJson());
 
 		$response = Http::withToken($this->accessToken)
-			->patch("https://mybusiness.googleapis.com/v1/accounts/{$accountId}/locations/{$locationId}", [
-				'regularHours' => [
-					'periods' => $regularHours->getPeriods(),
-				]
-			]);
+			->withOptions(['debug' => true])
+			->withQueryParameters([
+				'updateMask' => implode(',', $updateMask),
+			])
+			->patch("https://mybusinessbusinessinformation.googleapis.com/v1/{$locationName}", $body);
+
+		if (!$response->ok()) {
+			throw new \Exception('Failed to update. Status: ' . $response->status() . ' Body: ' . $response->json() ?: $response->body());
+		}
+
+		Cache::forget('google/locations');
 
 		return $response->json();
 	}
@@ -113,9 +142,6 @@ class GoogleService {
 	}
 
 	public function getSpecialHours(array $location) {
-		if (!empty($location['metadata']['placeId']) and $location['metadata']['placeId'] == 'ChIJTZin4K6gWkYRbErHkTdq05I') {
-			dd($location);
-		}
 		return new SpecialHours($location['specialHours']['specialHourPeriods'] ?? []);
 	}
 }

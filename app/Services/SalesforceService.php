@@ -24,7 +24,7 @@ class SalesforceService {
 		}
 	}
 
-	public function getLocations() {
+	public function getLocations(bool $forceUpdate = false): array {
 		$fields = [
 			'Id',
 			'Name',
@@ -70,7 +70,9 @@ class SalesforceService {
 			'BH_SpecialTimeClosed02__c',
 		];
 
-		Cache::forget("salesforce/locations");
+		if ($forceUpdate) {
+			Cache::forget("salesforce/locations");
+		}
 
 		$locations = Cache::remember("salesforce/locations", 300, function () use ($fields) {
 			$response = Forrest::query(sprintf('SELECT %s FROM Clinic__c WHERE Google_Place_ID__c != NULL', implode(', ', $fields)));
@@ -80,7 +82,7 @@ class SalesforceService {
 		return $locations;
 	}
 
-	public function getLocationByPlaceId($placeId) {
+	public function getLocationByPlaceId(string $placeId): array|null {
 		if (!$placeId) {
 			return null;
 		}

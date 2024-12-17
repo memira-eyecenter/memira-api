@@ -14,7 +14,7 @@ class SpecialHours {
 
 		foreach ($periods as $period) {
 			// Extract values from the period array
-			$isOpen    = $period['closed'] ?? true; // Default to open if 'closed' is not set
+			$isOpen    = isset($period['closed']) ? !$period['closed'] : true; // Default to open if 'closed' is not set
 			$startDate = $period['startDate'];
 			$endDate   = $period['endDate'] ?? null;
 			$openTime  = $period['openTime'] ?? null;
@@ -267,6 +267,10 @@ class SpecialHours {
 
 	public function toJson(): string {
 		return $this->getPeriods()->toJson();
+	}
+
+	public function toArray(): array {
+		return $this->getPeriods()->toArray();
 	}
 
 	public function getHash(): string {

@@ -181,6 +181,10 @@ class RegularHours {
 		return $this->getPeriods()->toJson();
 	}
 
+	public function toArray(): array {
+		return $this->getPeriods()->toArray();
+	}
+
 	public function getHash(): string {
 		return hash('sha256', $this->toJson());
 	}

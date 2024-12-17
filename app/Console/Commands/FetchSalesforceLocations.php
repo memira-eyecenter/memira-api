@@ -11,7 +11,7 @@ class FetchSalesforceLocations extends Command {
      *
      * @var string
      */
-    protected $signature = 'app:salesforce:locations';
+    protected $signature = 'app:salesforce:locations {--no-cache}';
 
     /**
      * The console command description.
@@ -31,7 +31,7 @@ class FetchSalesforceLocations extends Command {
      * Execute the console command.
      */
     public function handle() {
-        $locations = $this->salesforceService->getLocations();
+        $locations = $this->salesforceService->getLocations(!empty($this->option('no-cache')));
 
         $this->table([
             'Location ID',
