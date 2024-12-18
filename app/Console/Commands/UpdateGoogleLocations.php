@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Services\GoogleService;
 use App\Services\SalesforceService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 
 class UpdateGoogleLocations extends Command {
     /**
@@ -35,52 +34,80 @@ class UpdateGoogleLocations extends Command {
      * Execute the console command.
      */
     public function handle() {
-        $googleLocation = $this
-            ->googleService
-            ->getLocationByPlaceId('ChIJtQ1UKcj3X0YR6jKMg6ASNjY');
+        $googleLocations = $this->googleService->getLocations();
 
-        $salesforceLocation = $this
-            ->salesforceService
-            ->getLocationByPlaceId('ChIJtQ1UKcj3X0YR6jKMg6ASNjY');
-
-        if (!$googleLocation or !$salesforceLocation) {
-            $this->info('Skipping ' . $googleLocation['storeCode'] . '. No google or Salesforce location found for this place ID');
+        if (!$googleLocations) {
+            $this->info('Skipping - No Google locations found');
             return;
         }
 
-        // Save regular hours for comparison
-        $salesforceRegularHours = $this->salesforceService->getRegularHours($salesforceLocation);
-        $salesforceSpecialHours = $this->salesforceService->getSpecialHours($salesforceLocation);
+        foreach ($googleLocations as $googleLocation) {
+            $googlePlaceId = $googleLocation['metadata']['placeId'] ?? null;
+            $storeCode     = $googleLocation['storeCode'] ?? '';
+            $locality      = $googleLocation['storefrontAddress']['locality'] ?? '';
 
-        // Save special hours for comparison
-        $googleRegularHours = $this->googleService->getRegularHours($googleLocation);
-        $googleSpecialHours = $this->googleService->getSpecialHours($googleLocation);
+            $logName = $storeCode;
 
-        // Default to not update
-        $updateArgs = [null, null];
+            if ($locality) {
+                $logName = trim("{$logName} {$locality}");
+            }
 
-        if ($googleRegularHours->compare($salesforceRegularHours) === false) {
-            $updateArgs[0] = $salesforceRegularHours;
-        }
+            if (!$logName) {
+                $logName = $googleLocation['name'] ?? 'Unknown';
+            }
 
-        if ($googleSpecialHours->compare($salesforceSpecialHours) === false) {
-            $updateArgs[1] = $salesforceSpecialHours;
-        }
+            if (!$googlePlaceId) {
+                $this->info($logName . ' - Skipped - Google location has no Google Place ID');
+                continue;
+            }
 
-        if (empty($updateArgs[0]) and empty($updateArgs[1])) {
-            $this->info($googleLocation['storeCode'] . ' - Skipped. No changes found');
-            return;
-        }
+            $salesforceLocation = $this
+                ->salesforceService
+                ->getLocationByPlaceId($googlePlaceId);
 
+            if (!$salesforceLocation) {
+                $this->info($logName . ' - Skipped - Salesforce location not found');
+                continue;
+            }
 
-        $this->info($googleLocation['storeCode'] . ' - Should update');
+            // Save regular hours for comparison
+            $salesforceRegularHours = $this->salesforceService->getRegularHours($salesforceLocation);
+            $salesforceSpecialHours = $this->salesforceService->getSpecialHours($salesforceLocation);
 
-        try {
-            $this->googleService->updateLocation($googleLocation['name'], ...$updateArgs);
+            // Save special hours for comparison
+            $googleRegularHours = $this->googleService->getRegularHours($googleLocation);
+            $googleSpecialHours = $this->googleService->getSpecialHours($googleLocation);
 
-            $this->info($googleLocation['storeCode'] . ' - Updated');
-        } catch (\Exception $e) {
-            $this->error($e->getMessage());
+            // Default to not update
+            $updateArgs = [null, null];
+
+            if ($googleRegularHours->compare($salesforceRegularHours) === false) {
+                $updateArgs[0] = $salesforceRegularHours;
+            }
+
+            if ($googleSpecialHours->compare($salesforceSpecialHours) === false) {
+                $updateArgs[1] = $salesforceSpecialHours;
+            }
+
+            if (empty($updateArgs[0]) and empty($updateArgs[1])) {
+                $this->info($logName . ' - Skipped - No changes found');
+                continue;
+            }
+
+            if ($updateArgs[0]) {
+                $this->info($logName . ' - Update regular - ' . ($googleRegularHours->toString() ?: 'EMPTY') . ' -> ' . ($salesforceRegularHours->toString() ?: 'EMPTY'));
+            }
+
+            if ($updateArgs[1]) {
+                $this->info($logName . ' - Update special - ' . ($googleSpecialHours->toString() ?: 'EMPTY') . ' -> ' . ($salesforceSpecialHours->toString() ?: 'EMPTY'));
+            }
+
+            try {
+                $this->googleService->updateLocation($googleLocation['name'], ...$updateArgs);
+                $this->info($logName . ' - Updated');
+            } catch (\Exception $e) {
+                $this->error($logName . ' - Update error - ' . $e->getMessage());
+            }
         }
     }
 }

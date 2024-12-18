@@ -33,6 +33,11 @@ class FetchSalesforceLocations extends Command {
     public function handle() {
         $locations = $this->salesforceService->getLocations(!empty($this->option('no-cache')));
 
+        if (!$locations) {
+            $this->info('Salesforce - No locations found or error fetching locations.');
+            return;
+        }
+
         $this->table([
             'Location ID',
             'Name',
