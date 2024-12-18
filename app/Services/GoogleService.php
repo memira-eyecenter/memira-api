@@ -14,7 +14,10 @@ class GoogleService {
 
 	public function __construct() {
 		$this->client = new Client();
-		$this->client->setAuthConfig(config('services.google.credentials_path'));
+
+		$config = json_decode(getenv('GOOGLE_BUSINESS_CREDENTIALS_JSON'), true) ?: config('services.google.credentials_path');
+
+		$this->client->setAuthConfig($config);
 		$this->client->addScope('https://www.googleapis.com/auth/business.manage');
 		$this->client->useApplicationDefaultCredentials();
 
