@@ -1,0 +1,3 @@
+# .nixpacks.toml
+[build]
+  env = { COMPOSER_FLAGS = "--no-dev" }
