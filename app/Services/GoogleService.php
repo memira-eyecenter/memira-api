@@ -15,7 +15,15 @@ class GoogleService {
 	public function __construct() {
 		$this->client = new Client();
 
-		$config = json_decode(getenv('GOOGLE_BUSINESS_CREDENTIALS_JSON'), true) ?: config('services.google.credentials_path');
+		$jsonConfig = env('GOOGLE_BUSINESS_CREDENTIALS_JSON', null);
+
+		if ($jsonConfig) {
+			// Replace "XXLFXX" with "\n" to handle Kinsta environment variables replacing \n to n
+			$jsonConfig = str_replace("XXLFXX", "\\n", $jsonConfig);
+			$jsonConfig = json_decode($jsonConfig, true);
+		}
+
+		$config = $jsonConfig ?: config('services.google.credentials_path');
 
 		$this->client->setAuthConfig($config);
 		$this->client->addScope('https://www.googleapis.com/auth/business.manage');
