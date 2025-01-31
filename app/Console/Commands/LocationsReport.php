@@ -13,7 +13,7 @@ class LocationsReport extends Command {
      *
      * @var string
      */
-    protected $signature = 'app:locations:report {--no-cache} {--format=table}';
+    protected $signature = 'app:report:locations {--no-cache} {--format=table}';
 
     /**
      * The console command description.
@@ -53,17 +53,15 @@ class LocationsReport extends Command {
                     $googleLocation->put('openInfo.status', null);
                 }
 
-                $hasPlaceId = $googleLocation->has('metadata.placeId');
-
                 $row = $googleLocation
                     ->only('storeCode')
                     ->put('salesforceName', 'NO_SALESFORCE_CLINIC')
                     ->put('status', $googleLocation->get('openInfo.status'))
-                    ->put('placeId', $hasPlaceId ? 'Yes' : 'No')
+                    ->put('placeId', $googleLocation->get('metadata.placeId') ?: 'NO_PLACE_ID')
                     ->put('regularHours', $googleRegularHours->toString(false))
                     ->put('specialHours', $googleSpecialHours->toString());
 
-                if ($hasPlaceId and $salesforceLocation = $this->salesforceService->getLocationByPlaceId($googleLocation->get('metadata.placeId'))) {
+                if ($googleLocation->get('metadata.placeId') and $salesforceLocation = $this->salesforceService->getLocationByPlaceId($googleLocation->get('metadata.placeId'))) {
                     $salesforceRegularHours = $this->salesforceService->getRegularHours($salesforceLocation);
                     $salesforceSpecialHours = $this->salesforceService->getSpecialHours($salesforceLocation);
 
@@ -81,14 +79,16 @@ class LocationsReport extends Command {
 
                 return $row->toArray();
             })
-            ->sortBy('salesforceName')
+            ->sortBy(function ($row) {
+                return ($row['storeCode'] ? substr($row['storeCode'], 0, 2) : 'XX') . ' ' . $row['salesforceName'];
+            }, SORT_NATURAL)
             ->all();
 
         $headers = [
             'Store code',
             'Salesforce name',
             'Google Status',
-            'Google Place ID?',
+            'Google Place ID',
             'Google regular hours',
             'Google special hours',
             'Salesforce regular hours',
@@ -106,13 +106,25 @@ class LocationsReport extends Command {
 
             $csvFile = fopen($csvPath, 'w');
 
-            fputcsv($csvFile, $headers);
+            if (!$csvFile) {
+                $this->error('Failed to open CSV path: ' . $csvPath);
+                return;
+            }
 
-            collect($rows)->each(function ($row) use ($csvFile) {
-                fputcsv($csvFile, $row);
-            });
+            try {
+                fputcsv($csvFile, $headers);
 
-            fclose($csvFile);
+                collect($rows)->each(function ($row) use ($csvFile) {
+                    fputcsv($csvFile, $row);
+                });
+
+                fclose($csvFile);
+            } catch (\Exception $e) {
+                fclose($csvFile); // always close the file after an error
+
+                $this->error('Error writing CSV file: ' . $e->getMessage());
+                return;
+            }
 
             $this->info('CSV report saved to: ' . $csvPath);
             return;

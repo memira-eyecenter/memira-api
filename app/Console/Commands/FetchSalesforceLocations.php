@@ -11,7 +11,7 @@ class FetchSalesforceLocations extends Command {
      *
      * @var string
      */
-    protected $signature = 'app:locations:salesforce {--no-cache}';
+    protected $signature = 'app:salesforce:locations {--no-cache}';
 
     /**
      * The console command description.

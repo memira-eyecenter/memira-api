@@ -12,7 +12,7 @@ class UpdateGoogleLocations extends Command {
      *
      * @var string
      */
-    protected $signature = 'app:locations:google:update';
+    protected $signature = 'app:google:locations:update';
 
     /**
      * The console command description.

@@ -7,7 +7,7 @@ use App\Services\GoogleService;
 
 class FetchGoogleLocations extends Command {
     // The name and signature of the console command.
-    protected $signature = 'app:locations:google {--no-cache}';
+    protected $signature = 'app:google:locations {--no-cache}';
 
     // The console command description.
     protected $description = 'Fetch locations from Google Business';
